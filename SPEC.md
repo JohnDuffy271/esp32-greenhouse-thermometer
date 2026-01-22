@@ -1,16 +1,23 @@
-# SPEC.md — ESP32 Spec Starter
+# SPEC.md — ESP32 Greenhouse Thermometer
 
 ## Overview
-This firmware is a reusable ESP32 starter template with:
-- WiFi connection management
-- MQTT connection management (publish/subscribe)
-- Interrupt-driven digital input sensing with debounce
-- Clear modular structure suitable for future expansion
+Battery-powered ESP32 greenhouse thermometer with:
+- DHT22 sensor for temperature and humidity monitoring
+- I2C RTC module (DS3231) for accurate time tracking
+- Deep sleep mode (wake every 30 minutes)
+- MQTT publish/subscribe for remote monitoring and control
+- Configurable temperature thresholds with alarm publishing
+- Daily min/max temperature tracking (resets at 10:00 UTC)
 
 ## Platform
 - PlatformIO
 - Framework: Arduino
 - Board: esp32dev
+
+## Hardware
+- **Sensor:** DHT22 (analog via GPIO)
+- **RTC:** DS3231 (I2C: SDA=21, SCL=22)
+- **Wakeup:** External RTC alarm or internal timer
 
 ## Configuration
 ### Files
@@ -34,23 +41,36 @@ Device:
 - DEVICE_NAME
 - FW_VERSION
 
-Topics:
-- MQTT_TOPIC_BOOT
-- MQTT_TOPIC_LOG
-- MQTT_TOPIC_EVENTS
-- MQTT_TOPIC_LWT
+Thresholds (configurable via MQTT command):
+- TEMP_THRESHOLD_LOW (default 1.0°C)
+- TEMP_THRESHOLD_HIGH (default 30.0°C)
+
+Sleep:
+- SLEEP_INTERVAL_MINUTES (default 30)
+- RESET_HOUR_UTC (default 10)
 
 ## Logging
 - Serial logging enabled at 115200 baud
 - Logs should include a short prefix per module, e.g.
+  - `[DHT] ...`
+  - `[RTC] ...`
   - `[WiFi] ...`
   - `[MQTT] ...`
-  - `[INT] ...`
+  - `[Sleep] ...`
+
+## Wake Cycle Behaviour
+1. Device wakes from deep sleep every 30 minutes
+2. Read DHT22 (temperature, humidity)
+3. Read RTC (current time)
+4. Check against min/max daily window (reset at 10:00 UTC)
+5. Check if temp exceeds thresholds → publish alarm if triggered
+6. Publish status JSON to MQTT
+7. Sleep for 30 minutes
 
 ## WiFi behaviour
-- Attempt connection on boot
-- Retry until connected
-- Non-blocking where possible (no long delays)
+- Attempt connection on boot/wake
+- Retry until connected (with backoff)
+- Non-blocking where possible
 - Expose one-shot flag: `wifiJustConnected()`
 
 ## MQTT behaviour
@@ -58,21 +78,16 @@ Topics:
 - Set LWT topic to "offline"
 - Publish "online" on connect
 - Expose one-shot flag: `mqttJustConnected()`
-- Publish boot message once per MQTT connection event
-
-## Interrupt + debounce behaviour
-- Support N interrupt-driven inputs
-- Inputs are assumed **active-low** by default (configurable later)
-- ISR must only set a flag
-- Debounce time default: 60ms
-- After debounce confirms a stable change, publish an event message
-
+- Subscribe to command topic on connect
+- Handle threshold updates from commands
 
 ## Main loop responsibilities
 - service connection manager
-- service interrupts/debounce
-- publish events/logs
-- avoid heavy logic in main.cpp
+- read sensors when awake
+- update min/max tracker
+- publish MQTT messages
+- initiate deep sleep
+- avoid heavy logic; keep execution tight for battery life
 
 ## MQTT Contract (Default)
 
@@ -166,20 +181,35 @@ Offline example (LWT):
 
 ### Command Payloads
 
-Commands are sent to `test/esp32/cmd` as plain text for now.
+Commands are sent to `test/esp32/greenhouse/cmd` as JSON.
 
-#### Supported Commands
-- `ping` — device responds with `pong` on `test/esp32/resp`
+#### set_thresholds Command
+Updates temperature alarm thresholds.
 
-#### Supported Commands
+**Publish to `test/esp32/greenhouse/cmd`:**
+```json
+{
+  "cmd": "set_thresholds",
+  "low_c": 2.0,
+  "high_c": 28.0
+}
+```
 
-- `ping` — device responds with `pong` on `test/esp32/resp`
+**Response (published to `test/esp32/greenhouse/status`):**
+New thresholds take effect on next wake cycle. Status message confirms new values (optional echo response field).
 
-#### Planned Commands
+#### get_config Command
+Request current configuration.
 
-- `led=on` — turn LED on
-- `led=off` — turn LED off
-- `led=toggle` — toggle LED state
+**Publish to `test/esp32/greenhouse/cmd`:**
+```json
+{
+  "cmd": "get_config"
+}
+```
+
+**Response (published to separate response topic or embedded in status):**
+Returns current thresholds and settings.
 
 #### Example Command → Response Flow
 
