@@ -31,6 +31,11 @@
 #define LED_PIN 2  // GPIO2 (built-in LED on many ESP32 boards)
 
 // ============================
+// DHT22 Sensor
+// ============================
+#define DHT_PIN 27  // GPIO27 (DHT22 data pin)
+
+// ============================
 // Interrupt Inputs
 // ============================
 // Set INPUT_ACTIVE_LOW to 1 for active-low inputs, 0 for active-high

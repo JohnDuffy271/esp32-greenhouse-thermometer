@@ -2,12 +2,14 @@
 #include <ConnectionManager.h>
 #include <Comms.h>
 #include <Interrupts.h>
+#include <SensorDHT22.h>
 #include <config.h>
 
 // Global instances
 ConnectionManager cm;
 Comms comms;
 Interrupts interrupts;
+SensorDHT22 dht22;
 
 // Non-blocking tick scheduler
 unsigned long lastTickMs = 0;
@@ -15,6 +17,10 @@ const unsigned long TICK_INTERVAL = 100;  // ms
 
 // Heartbeat scheduler
 unsigned long lastHeartbeatMs = 0;
+
+// DHT22 reading scheduler (every 30 seconds for demo)
+unsigned long lastDHTReadMs = 0;
+const unsigned long DHT_READ_INTERVAL_MS = 30000;  // 30 seconds
 
 void setup() {
   // Initialize ConnectionManager (starts WiFi and prepares MQTT)
@@ -29,9 +35,13 @@ void setup() {
   // Initialize Interrupts with reference to Comms
   interrupts.begin(comms);
   
+  // Initialize DHT22 sensor
+  dht22.begin(DHT_PIN);
+  
   delay(1000);  // Give WiFi/MQTT a moment to start
   lastTickMs = millis();
   lastHeartbeatMs = millis();  // Initialize heartbeat timer
+  lastDHTReadMs = millis();    // Initialize DHT read timer
 }
 
 void loop() {
@@ -79,13 +89,32 @@ void loop() {
   // Non-blocking ~100ms tick for periodic work
   if (nowMs - lastTickMs >= TICK_INTERVAL) {
     lastTickMs = nowMs;
-    // Periodic tasks can be added here if needed
+    
+    // DHT22 reading scheduler (every 30 seconds for demo)
+    if (nowMs - lastDHTReadMs >= DHT_READ_INTERVAL_MS) {
+      lastDHTReadMs = nowMs;
+      
+      float tempC = 0.0f;
+      float humPct = 0.0f;
+      
+      if (dht22.read(tempC, humPct)) {
+        // Publish reading to MQTT log topic
+        char logMsg[128];
+        snprintf(logMsg, sizeof(logMsg), 
+                 "Temp=%.1fC Hum=%.1f%%", 
+                 tempC, humPct);
+        comms.publishLog(logMsg);
+      } else {
+        comms.publishLog("DHT22 read failed");
+      }
+    }
+    
+    // Periodic debug output
     static uint32_t lastPrint = 0;
-if  (nowMs - lastPrint >= 5000) {
-    lastPrint = nowMs;
-    Serial.printf("[DBG] mqttConnected=%d\n", cm.mqttConnected() ? 1 : 0);
-}
-
+    if (nowMs - lastPrint >= 5000) {
+      lastPrint = nowMs;
+      Serial.printf("[DBG] mqttConnected=%d\n", cm.mqttConnected() ? 1 : 0);
+    }
   }
   
   // Minimal yield to prevent watchdog trigger

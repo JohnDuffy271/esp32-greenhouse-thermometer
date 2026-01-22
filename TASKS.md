@@ -23,32 +23,31 @@ Each task focuses on a single component and builds toward full system integratio
 
 ---
 
-## TASK 002: DHT22 Module
-**Status:** Not started  
-**Files to Create:** `lib/DHT22/DHT22.h`, `lib/DHT22/DHT22.cpp`  
+## TASK 002: DHT22 Module ✓
+**Status:** Complete  
+**Files Created:** `lib/SensorDHT22/SensorDHT22.h`, `lib/SensorDHT22/SensorDHT22.cpp`  
+**Files Modified:** `platformio.ini`, `include/config_common.h`, `src/main.cpp`  
 **Purpose:** Abstract DHT22 sensor reading with error handling and data validation.
 
-**Requirements:**
-- Read temperature and humidity from DHT22
-- Error checking (checksum, timeout)
-- Non-blocking read where possible
-- Return structured data (temperature in °C, humidity in %)
+**Implementation Notes:**
+- Uses Adafruit DHT sensor library (v1.4.6)
+- Dynamically creates DHT instance in `begin()` to avoid static constructor issues
+- Enforces 2-second minimum interval between reads (DHT22 spec)
+- Returns false on NaN values or read failures
+- Publishes temperature/humidity to MQTT log topic every 30 seconds (demo)
 - Logging prefix: `[DHT]`
 
-**Public Interface:**
-```cpp
-class DHT22 {
-  void begin(uint8_t pin);
-  bool read(float& temp_c, float& humidity_pct);
-  bool isReady(); // non-blocking check
-};
-```
-
 **Acceptance Criteria:**
-- Compiles for env:esp32dev
-- Reads sensor successfully
-- Handles sensor failures gracefully
-- No blocking delays > 5ms in main loop
+- ✓ Compiles for env:esp32dev
+- ✓ DHT22 module created with public interface (begin, read, isReady)
+- ✓ Integrated into main.cpp with 30-second read cycle
+- ✓ Readings published to MQTT log topic via Comms::publishLog()
+- ✓ No blocking delays > 5ms during normal operation
+
+**Testing Notes:**
+- Serial output shows `[DHT] Read success: temp=X.XC hum=X.X%` every 30 seconds
+- MQTT topic `test/esp32/log` receives formatted strings: `Temp=18.4C Hum=62.1%`
+- On sensor error: logs `[DHT] Read failed: NaN values` and publishes "DHT22 read failed"
 
 ---
 
