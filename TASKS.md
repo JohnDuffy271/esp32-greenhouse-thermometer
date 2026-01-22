@@ -51,34 +51,44 @@ Each task focuses on a single component and builds toward full system integratio
 
 ---
 
-## TASK 003: RTC Module (I2C DS3231)
-**Status:** Not started  
-**Files to Create:** `lib/RTC/RTC.h`, `lib/RTC/RTC.cpp`  
+## TASK 003: RTC Module (I2C DS3231) ✓
+**Status:** Complete  
+**Files Created:** `lib/RTC/RTC.h`, `lib/RTC/RTC.cpp`  
+**Files Modified:** `platformio.ini`  
 **Purpose:** Abstract DS3231 RTC communication via I2C for accurate timekeeping.
 
-**Requirements:**
-- Initialize I2C (SDA=21, SCL=22)
-- Read current time from DS3231
-- Set time if needed (for initial sync)
-- Return `time_t` (Unix epoch) or structured time
+**Implementation Notes:**
+- Uses northernwidget/DS3231 library (v1.2.0) for robust I2C communication
+- Initializes I2C on pins SDA=21, SCL=22 via `Wire.begin(21, 22)`
+- Implements retry logic with one retry (MAX_RETRIES=2) for I2C glitches
+- 10ms delay between retries to allow I2C to recover
+- Validates datetime range before returning (year 2000-2100, valid month/day/time)
+- Converts between Unix epoch (time_t) and structured datetime format
 - Logging prefix: `[RTC]`
 
-**Public Interface:**
+**Public Interface Implemented:**
 ```cpp
-class RTC {
-  bool begin();
-  bool getTime(time_t& t);
-  bool setTime(time_t t);
-  bool getDateTime(int& year, int& month, int& day, 
-                   int& hour, int& minute, int& second);
-};
+bool begin()                          // Initialize I2C and probe DS3231
+bool getTime(time_t& t)              // Read Unix epoch time with retry
+bool setTime(time_t t)               // Set Unix epoch time
+bool getDateTime(int& year, int& month, int& day, 
+                 int& hour, int& minute, int& second)  // Read structured time
 ```
 
 **Acceptance Criteria:**
-- Compiles for env:esp32dev
-- Communicates with DS3231 over I2C
-- Returns valid timestamps
-- Tolerates I2C communication glitches
+- ✓ Compiles for env:esp32dev
+- ✓ Communicates with DS3231 over I2C (SDA=21, SCL=22)
+- ✓ Probes DS3231 at address 0x68 and fails gracefully if not found
+- ✓ Returns valid timestamps (validated against 2000-2100 range)
+- ✓ Tolerates I2C communication glitches (retries once on failure)
+- ✓ Converts between time_t (Unix epoch) and structured datetime
+
+**Testing Notes:**
+- Serial output shows `[RTC] Initialized successfully` on boot
+- `getTime()` returns timestamps like `2026-01-22 15:30:45 (epoch=1737542445)`
+- On I2C error: logs `[RTC] Read attempt X failed` then retries
+- If DS3231 not found: logs error and returns false from begin()
+- `setTime()` accepts Unix epoch and configures DS3231
 
 ---
 
