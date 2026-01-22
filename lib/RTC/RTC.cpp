@@ -1,130 +1,60 @@
 #include "RTC.h"
-#include <RTClib.h>
+#include <DS3231.h>
 
-static RTC_DS3231 rtc;
+static DS3231 rtc;          // northernwidget DS3231
+static RTCDateTime dt;      // struct from the library
 
-bool RTC::initialized = false;
+bool RTC::_initialized = false;
 
-bool RTC::begin() {
-  if (initialized) {
-    return true;
-  }
+bool RTC::begin(uint8_t sdaPin, uint8_t sclPin) {
+  if (_initialized) return true;
 
-  Wire.begin(21, 22);
-  Serial.println("[RTC] I2C initialized (SDA=21, SCL=22)");
+  Wire.begin(sdaPin, sclPin);
+  Serial.printf("[RTC] I2C started (SDA=%u, SCL=%u)\n", sdaPin, sclPin);
 
-  if (!rtc.begin()) {
-    Serial.println("[RTC] Error: DS3231 not found on I2C");
+  // DS3231 lib doesn't always "probe", so do a basic I2C check
+  Wire.beginTransmission(0x68);
+  uint8_t err = Wire.endTransmission();
+  if (err != 0) {
+    Serial.printf("[RTC] DS3231 not detected at 0x68 (err=%u)\n", err);
     return false;
   }
 
-  // Optional: detect lost power (battery removed / dead)
-  if (rtc.lostPower()) {
-    Serial.println("[RTC] Warning: DS3231 lost power (time may be invalid)");
-  }
-
-  initialized = true;
-  Serial.println("[RTC] Initialized successfully");
+  _initialized = true;
+  Serial.println("[RTC] DS3231 detected OK");
   return true;
 }
 
-bool RTC::getTime(time_t& t) {
-  if (!initialized) {
-    Serial.println("[RTC] Error: not initialized");
+bool RTC::getTime(time_t &t) {
+  if (!_initialized) {
+    Serial.println("[RTC] getTime() called before begin()");
     return false;
   }
 
-  for (uint8_t attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    if (attempt > 0) delay(10);
+  dt = rtc.getDateTime();
 
-    DateTime now = rtc.now();
+  // Build a tm struct
+  struct tm tmNow = {};
+  tmNow.tm_year = dt.year - 1900;
+  tmNow.tm_mon  = dt.month - 1;
+  tmNow.tm_mday = dt.day;
+  tmNow.tm_hour = dt.hour;
+  tmNow.tm_min  = dt.minute;
+  tmNow.tm_sec  = dt.second;
+  tmNow.tm_isdst = 0;
 
-    // Convert RTClib DateTime -> struct tm -> epoch
-    struct tm timeinfo = {};
-    timeinfo.tm_year = now.year() - 1900;
-    timeinfo.tm_mon  = now.month() - 1;
-    timeinfo.tm_mday = now.day();
-    timeinfo.tm_hour = now.hour();
-    timeinfo.tm_min  = now.minute();
-    timeinfo.tm_sec  = now.second();
-    timeinfo.tm_isdst = 0;
+  // mktime() treats tm as local time; for greenhouse logging we can treat as UTC-ish.
+  // If you care about BST/GMT properly, we can add timezone handling later.
+  t = mktime(&tmNow);
 
-    t = mktime(&timeinfo);
-
-    if (t > 0) {
-      Serial.printf("[RTC] Read success: %04d-%02d-%02d %02d:%02d:%02d (epoch=%lu)\n",
-                    now.year(), now.month(), now.day(),
-                    now.hour(), now.minute(), now.second(),
-                    (unsigned long)t);
-      return true;
-    }
-
-    Serial.printf("[RTC] Read attempt %d failed\n", attempt + 1);
-  }
-
-  Serial.println("[RTC] Read failed after all retries");
-  return false;
-}
-
-bool RTC::setTime(time_t t) {
-  if (!initialized) {
-    Serial.println("[RTC] Error: not initialized");
+  if (t <= 0) {
+    Serial.println("[RTC] Failed to convert DS3231 time to epoch");
     return false;
   }
 
-  struct tm* timeinfo = gmtime(&t);
-  if (timeinfo == nullptr) {
-    Serial.println("[RTC] Error: gmtime conversion failed");
-    return false;
-  }
-
-  DateTime dt(
-    timeinfo->tm_year + 1900,
-    timeinfo->tm_mon + 1,
-    timeinfo->tm_mday,
-    timeinfo->tm_hour,
-    timeinfo->tm_min,
-    timeinfo->tm_sec
-  );
-
-  rtc.adjust(dt);
-
-  Serial.printf("[RTC] Set time success: %04d-%02d-%02d %02d:%02d:%02d\n",
-                dt.year(), dt.month(), dt.day(),
-                dt.hour(), dt.minute(), dt.second());
+  Serial.printf("[RTC] %04u-%02u-%02u %02u:%02u:%02u (epoch=%lu)\n",
+                dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
+                (unsigned long)t);
 
   return true;
-}
-
-bool RTC::getDateTime(int& year, int& month, int& day,
-                      int& hour, int& minute, int& second) {
-  if (!initialized) {
-    Serial.println("[RTC] Error: not initialized");
-    return false;
-  }
-
-  for (uint8_t attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    if (attempt > 0) delay(10);
-
-    DateTime now = rtc.now();
-
-    year = now.year();
-    month = now.month();
-    day = now.day();
-    hour = now.hour();
-    minute = now.minute();
-    second = now.second();
-
-    // Basic sanity check
-    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      Serial.printf("[RTC] Read success: %04d-%02d-%02d %02d:%02d:%02d\n",
-                    year, month, day, hour, minute, second);
-      return true;
-    }
-
-    Serial.printf("[RTC] Read attempt %d failed\n", attempt + 1);
-  }
-
-  Serial.println("[RTC] Read failed after all retries");
-  return false;
 }
