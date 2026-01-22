@@ -92,41 +92,56 @@ bool getDateTime(int& year, int& month, int& day,
 
 ---
 
-## TASK 004: Min/Max Tracker + Daily Reset (10:00 UTC)
-**Status:** Not started  
-**Files to Create:** `lib/MinMaxTracker/MinMaxTracker.h`, `lib/MinMaxTracker/MinMaxTracker.cpp`  
-**Purpose:** Track daily min/max temperatures and reset at 10:00 UTC.
+## TASK 004: Min/Max Tracker + Daily Reset (10:00 UTC) ✓
+**Status:** Complete  
+**Files Created:** `lib/MinMaxTracker/MinMaxTracker.h`, `lib/MinMaxTracker/MinMaxTracker.cpp`  
+**Purpose:** Track daily min/max temperatures with automatic UTC reset at 10:00.
 
-**Requirements:**
-- Maintain min/max temperatures over a rolling 24-hour window
-- Reset counters at 10:00 UTC each day
-- Update min/max on each new reading
-- Store last reset time and current date
+**Implementation Notes:**
+- Pure logic module: no MQTT, WiFi, delays, or external dependencies
+- Uses RTC time_t (Unix epoch) as source of truth, interpreted via gmtime() for UTC
+- Stores date marker (yyyymmdd) to ensure exactly one reset per calendar day
+- Reset triggers when: hour >= 10 UTC AND current date differs from stored reset date
+- On reset: min/max initialized to current reading; reset_time and date_yyyymmdd updated
+- Handles invalid time_t values (≤0) gracefully by skipping update
 - Logging prefix: `[MinMax]`
 
-**Public Interface:**
+**Public Interface Implemented:**
 ```cpp
-class MinMaxTracker {
-  void update(float temp_c, time_t current_time);
-  float getMin() const;
-  float getMax() const;
-  bool isNewDay(time_t current_time);
-  bool wasResetToday(time_t current_time);
-  struct DailyStats {
-    float min_temp;
-    float max_temp;
-    time_t reset_time;
-    int date_yyyymmdd;
-  };
-  DailyStats getStats() const;
+void update(float temp_c, time_t current_time)         // Update min/max, check reset
+float getMin() const                                    // Get daily minimum (°C)
+float getMax() const                                    // Get daily maximum (°C)
+bool isNewDay(time_t current_time)                      // Check if new calendar day
+bool wasResetToday(time_t current_time)                 // Check if reset occurred today
+struct DailyStats {
+  float min_temp;                 // Minimum temperature today
+  float max_temp;                 // Maximum temperature today
+  time_t reset_time;              // Unix epoch of today's 10:00 UTC reset
+  int date_yyyymmdd;              // Date marker (e.g., 20260122)
 };
+DailyStats getStats() const                             // Get full daily statistics
 ```
 
 **Acceptance Criteria:**
-- Compiles for env:esp32dev
-- Correctly identifies 10:00 UTC reset time
-- Tracks min/max correctly across multiple readings
-- Resets exactly once per day at 10:00 UTC
+- ✓ Compiles for env:esp32dev
+- ✓ Correctly identifies 10:00 UTC reset time using gmtime()
+- ✓ Tracks min/max correctly across multiple readings
+- ✓ Resets exactly once per day when date changes and hour ≥ 10
+- ✓ Handles first reading after boot (initializes NaN → current temp)
+- ✓ No blocking delays, pure combinational logic
+- ✓ Validates time_t input (ignores ≤ 0)
+
+**Reset Behavior:**
+- First reading of day: min = max = current_temp, reset_time = current_time
+- Subsequent readings: update min/max normally
+- On 10:00 UTC boundary (next day): min/max reset to new reading
+- Date marker prevents multiple resets on same day
+
+**Testing Notes:**
+- Serial output: `[MinMax] Update: temp=22.5°C, min=15.2°C, max=28.7°C`
+- On reset: `[MinMax] Reset triggered at 10:00 UTC (date: 20260123)`
+- Invalid time: `[MinMax] Warning: invalid time_t, skipping update`
+- getStats() returns complete DailyStats for publishing
 
 ---
 
