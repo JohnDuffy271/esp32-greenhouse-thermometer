@@ -145,33 +145,54 @@ DailyStats getStats() const                             // Get full daily statis
 
 ---
 
-## TASK 005: Deep Sleep Scheduler (30-min intervals)
-**Status:** Not started  
-**Files to Create:** `lib/SleepManager/SleepManager.h`, `lib/SleepManager/SleepManager.cpp`  
+## TASK 005: Deep Sleep Scheduler (30-min intervals) ✓
+**Status:** Complete  
+**Files Created:** `lib/SleepManager/SleepManager.h`, `lib/SleepManager/SleepManager.cpp`  
 **Purpose:** Manage ESP32 deep sleep and scheduled wake intervals.
 
-**Requirements:**
-- Configure ESP32 deep sleep for N minutes (default 30)
-- Track wake count / session
-- Wake every 30 minutes for sensor reading
-- Minimal wake-time overhead
+**Implementation Notes:**
+- Uses real ESP32 deep sleep via `esp_deep_sleep_start()` (does not return)
+- Timer-based wake-up configured via `esp_sleep_enable_timer_wakeup()`
+- Wake counter stored in RTC slow memory (survives deep sleep, lost on power cycle)
+- Uses `RTC_DATA_ATTR` annotation for RTC-persistent variable
+- Logs wake reason (cold boot vs timer wake) using `esp_sleep_get_wakeup_cause()`
+- Increments wake counter before sleeping
+- Default 30-minute interval, configurable via `begin()`
 - Logging prefix: `[Sleep]`
 
-**Public Interface:**
+**Public Interface Implemented:**
 ```cpp
-class SleepManager {
-  void begin(uint32_t interval_minutes = 30);
-  void sleep();  // Enter deep sleep; does not return
-  uint64_t getWakeCount() const;
-  uint32_t getIntervalMinutes() const;
-};
+void begin(uint32_t interval_minutes = 30)  // Initialize, log wake reason, read wake count
+void sleep()                                 // Enter deep sleep (does NOT return)
+uint64_t getWakeCount() const               // Get wake counter from RTC memory
+uint32_t getIntervalMinutes() const         // Get configured interval
 ```
 
 **Acceptance Criteria:**
-- Compiles for env:esp32dev
-- ESP32 enters and wakes from deep sleep
-- Wake interval is accurate (within ±5% tolerance)
-- RTC/timestamp survives sleep-wake cycle
+- ✓ Compiles for env:esp32dev
+- ✓ ESP32 enters deep sleep via `esp_deep_sleep_start()`
+- ✓ Wakes every 30 minutes via timer interrupt
+- ✓ Wake counter persists across deep sleep cycles
+- ✓ RTC timestamp survives sleep-wake cycle (independent RTC module)
+- ✓ Wake reason logged at boot (cold boot vs timer wake)
+
+**Sleep Behavior:**
+- **Cold boot:** Wake reason = NONE, wake_count starts at 0
+- **Timer wake:** Wake reason = TIMER, wake_count increments by 1
+- **Sleep entry:** Increments counter, flushes Serial, calls esp_deep_sleep_start()
+- **Timer duration:** interval_minutes × 60 seconds (configurable)
+
+**Logging Output:**
+```
+[Sleep] Initialized: interval=30 min, wake_count=0
+[Sleep] Wake reason: NONE (cold boot)
+[Sleep] Entering deep sleep for 30 minutes (wake_count=1)
+```
+
+**RTC Memory Details:**
+- Uses `RTC_DATA_ATTR` for RTC slow memory (survives deep sleep)
+- Counter stored as uint64_t (supports >4 billion wakes)
+- Reset on power cycle (not on deep sleep wake)
 
 ---
 
@@ -304,4 +325,36 @@ class CommandHandler {
 - **TASK 008:** System integration + validation
 
 Total estimated effort: ~8–10 developer days (assuming ~1 day per task + integration overhead).
+
+
+## TASK 005: Deep Sleep Scheduler (30-min intervals)
+**Status:** Not started  
+**Files to Create:** `lib/SleepManager/SleepManager.h`, `lib/SleepManager/SleepManager.cpp`  
+**Files to Modify:** `src/main.cpp`  
+**Purpose:** Enter ESP32 deep sleep between sensor readings to support battery operation.
+
+### Requirements
+- Deep sleep interval default: 30 minutes
+- Store a wake counter that survives deep sleep (RTC memory is fine)
+- Log wake reason and wake count on boot
+- Provide a `sleep()` method that sleeps for the configured interval
+- Logging prefix: `[Sleep]`
+
+### Public Interface
+```cpp
+class SleepManager {
+public:
+  static void begin(uint32_t intervalMinutes = 30);
+  static void logWakeInfo();
+  static uint64_t getWakeCount();
+  static uint32_t getIntervalMinutes();
+  static void sleep(); // enters deep sleep (does not return)
+};
+
+Acceptance Criteria
+
+- Compiles for env:esp32dev
+- On every boot: logs wake reason + wake count
+- Sleeps for ~30 minutes and wakes repeatedly
+- Does not block normal WiFi/MQTT logic (work happens then sleep)
 
