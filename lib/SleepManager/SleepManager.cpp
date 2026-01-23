@@ -51,45 +51,26 @@ void SleepManager::logWakeReason() {
   
   const char* reason_str = "UNKNOWN";
   switch (wakeup_reason) {
-    case ESP_SLEEP_WAKEUP_EXT0:
-      reason_str = "EXT0 (external pin)";
-      break;
-    case ESP_SLEEP_WAKEUP_EXT1:
-      reason_str = "EXT1 (external pin)";
-      break;
-    case ESP_SLEEP_WAKEUP_TIMER:
-      reason_str = "TIMER";
-      break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD:
-      reason_str = "TOUCHPAD";
-      break;
-    case ESP_SLEEP_WAKEUP_ULP:
-      reason_str = "ULP";
-      break;
-    case ESP_SLEEP_WAKEUP_GPIO:
-      reason_str = "GPIO";
-      break;
-    case ESP_SLEEP_WAKEUP_UART:
-      reason_str = "UART";
-      break;
-    case ESP_SLEEP_WAKEUP_WIFI:
-      reason_str = "WIFI";
-      break;
-    case ESP_SLEEP_WAKEUP_COCPU:
-      reason_str = "COCPU";
-      break;
-    case ESP_SLEEP_WAKEUP_COCPU_TRAP_TRIG:
-      reason_str = "COCPU_TRAP";
-      break;
-    case ESP_SLEEP_WAKEUP_BT:
-      reason_str = "BT";
-      break;
-    case ESP_SLEEP_WAKEUP_NONE:
-      reason_str = "NONE (cold boot)";
-      break;
-    default:
-      break;
-  }
+  case ESP_SLEEP_WAKEUP_EXT0:
+    reason_str = "EXT0";
+    break;
+  case ESP_SLEEP_WAKEUP_EXT1:
+    reason_str = "EXT1";
+    break;
+  case ESP_SLEEP_WAKEUP_TIMER:
+    reason_str = "TIMER";
+    break;
+  case ESP_SLEEP_WAKEUP_TOUCHPAD:
+    reason_str = "TOUCHPAD";
+    break;
+  case ESP_SLEEP_WAKEUP_ULP:
+    reason_str = "ULP";
+    break;
+  default:
+    reason_str = "COLD BOOT / UNKNOWN";
+    break;
+}
+
   
   Serial.printf("[Sleep] Wake reason: %s\n", reason_str);
 }

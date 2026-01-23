@@ -1,13 +1,12 @@
 #pragma once
 #include <Arduino.h>
-#include <Wire.h>
 #include <time.h>
+#include <config.h>
+#include <config_common.h>
 
 class RTC {
 public:
-  static bool begin(uint8_t sdaPin = 21, uint8_t sclPin = 22);
-  static bool getTime(time_t &t);
-
-private:
-  static bool _initialized;
+  static bool begin();
+  static bool getTime(time_t& t);
+  static bool setTime(time_t t);
 };

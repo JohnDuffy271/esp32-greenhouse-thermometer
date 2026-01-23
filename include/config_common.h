@@ -6,6 +6,11 @@
 #define MQTT_HOST       "192.168.0.20"
 #define MQTT_PORT       1883
 
+#define I2C_SDA_PIN 21
+#define I2C_SCL_PIN 22
+#define I2C_FREQ_HZ 100000
+
+
 // ============================
 // Device Identity
 // ============================

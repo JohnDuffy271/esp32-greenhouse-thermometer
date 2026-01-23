@@ -4,6 +4,7 @@
 #include <Interrupts.h>
 #include <SensorDHT22.h>
 #include <config.h>
+#include <RTC.h>
 
 // Global instances
 ConnectionManager cm;
@@ -23,6 +24,12 @@ unsigned long lastDHTReadMs = 0;
 const unsigned long DHT_READ_INTERVAL_MS = 30000;  // 30 seconds
 
 void setup() {
+  
+  RTC::begin();
+
+  time_t now;
+  RTC::getTime(now);
+
   // Initialize ConnectionManager (starts WiFi and prepares MQTT)
   cm.begin();
   

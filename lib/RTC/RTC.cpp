@@ -1,60 +1,46 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <RTClib.h>
 #include "RTC.h"
-#include <DS3231.h>
+#include <config_common.h>
 
-static DS3231 rtc;          // northernwidget DS3231
-static RTCDateTime dt;      // struct from the library
+#ifndef I2C_SDA_PIN
+ #define I2C_SDA_PIN 21
+#endif
 
-bool RTC::_initialized = false;
+#ifndef I2C_SCL_PIN
+ #define I2C_SCL_PIN 22
+#endif
 
-bool RTC::begin(uint8_t sdaPin, uint8_t sclPin) {
-  if (_initialized) return true;
+#ifndef I2C_FREQ_HZ
+ #define I2C_FREQ_HZ 100000
+#endif 
 
-  Wire.begin(sdaPin, sclPin);
-  Serial.printf("[RTC] I2C started (SDA=%u, SCL=%u)\n", sdaPin, sclPin);
+static RTC_DS3231 rtc;
+static bool initialized = false;
 
-  // DS3231 lib doesn't always "probe", so do a basic I2C check
-  Wire.beginTransmission(0x68);
-  uint8_t err = Wire.endTransmission();
-  if (err != 0) {
-    Serial.printf("[RTC] DS3231 not detected at 0x68 (err=%u)\n", err);
+bool RTC::begin() {
+  if (initialized) return true;
+
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, I2C_FREQ_HZ);
+  Serial.println("[RTC] I2C initialized (SDA=21, SCL=22)");
+
+  if (!rtc.begin()) {
+    Serial.println("[RTC] Error: DS3231 not found");
     return false;
   }
 
-  _initialized = true;
-  Serial.println("[RTC] DS3231 detected OK");
+  initialized = true;
+  Serial.println("[RTC] Initialized successfully");
   return true;
 }
 
-bool RTC::getTime(time_t &t) {
-  if (!_initialized) {
-    Serial.println("[RTC] getTime() called before begin()");
-    return false;
-  }
+bool RTC::getTime(time_t& t) {
+  if (!initialized) return false;
 
-  dt = rtc.getDateTime();
+  DateTime now = rtc.now();
 
-  // Build a tm struct
   struct tm tmNow = {};
-  tmNow.tm_year = dt.year - 1900;
-  tmNow.tm_mon  = dt.month - 1;
-  tmNow.tm_mday = dt.day;
-  tmNow.tm_hour = dt.hour;
-  tmNow.tm_min  = dt.minute;
-  tmNow.tm_sec  = dt.second;
-  tmNow.tm_isdst = 0;
-
-  // mktime() treats tm as local time; for greenhouse logging we can treat as UTC-ish.
-  // If you care about BST/GMT properly, we can add timezone handling later.
-  t = mktime(&tmNow);
-
-  if (t <= 0) {
-    Serial.println("[RTC] Failed to convert DS3231 time to epoch");
-    return false;
-  }
-
-  Serial.printf("[RTC] %04u-%02u-%02u %02u:%02u:%02u (epoch=%lu)\n",
-                dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
-                (unsigned long)t);
-
+  tmNow.tm_year = now.year() - 1900;
   return true;
-}
+};
