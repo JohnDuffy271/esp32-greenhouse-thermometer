@@ -274,6 +274,12 @@ void ConnectionManager::handleMqttMessage(const char* topic, byte* payload, unsi
   handleCommand(cmdStr);
 }
 
+
+PubSubClient* ConnectionManager::getMqttClient() {
+  return &mqttClient;
+}
+
+
 // ============================
 // Private: handleCommand()
 // ============================

@@ -358,3 +358,26 @@ Acceptance Criteria
 - Sleeps for ~30 minutes and wakes repeatedly
 - Does not block normal WiFi/MQTT logic (work happens then sleep)
 
+TASK 009: Optional RTC Compile-Time Sync (UK local)
+
+Status: Not started
+Files to Modify: platformio.ini, lib/RTC/RTC.h, lib/RTC/RTC.cpp, src/main.cpp
+Purpose: Allow DS3231 RTC to be set to firmware compile-time (UK local) when enabled via a compiler directive.
+
+Requirements:
+Controlled by compiler directive ENABLE_RTC_TIME_SYNC
+
+When enabled:
+set DS3231 time to __DATE__ + __TIME__
+print the “set” time and “readback” time
+
+When disabled:
+RTC behaves normally (read-only)
+
+Logging prefix: [RTC]
+Must compile with feature ON or OFF
+
+Acceptance Criteria:
+Builds successfully for env:esp32dev with and without sync enabled
+With sync enabled: DS3231 updates time on boot and logs confirmation
+With sync disabled: DS3231 is not modified

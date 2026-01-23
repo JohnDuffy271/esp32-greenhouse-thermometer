@@ -22,6 +22,8 @@ public:
    */
   ConnectionManager();
 
+  PubSubClient* getMqttClient();
+
   /**
    * @brief Set up WiFi and MQTT clients with credentials from config.h.
    * 

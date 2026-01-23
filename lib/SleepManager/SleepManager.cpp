@@ -69,7 +69,7 @@ void SleepManager::logWakeReason() {
   default:
     reason_str = "COLD BOOT / UNKNOWN";
     break;
-}
+  }
 
   
   Serial.printf("[Sleep] Wake reason: %s\n", reason_str);

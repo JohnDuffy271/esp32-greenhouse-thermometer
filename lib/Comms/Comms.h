@@ -1,68 +1,30 @@
 #pragma once
 
 #include <Arduino.h>
+#include <PubSubClient.h>
 
-// Forward declaration
 class ConnectionManager;
 
-/**
- * @class Comms
- * @brief MQTT communication wrapper with topic management.
- * 
- * Provides high-level publish methods that abstract away topic construction
- * and delegate to ConnectionManager's MQTT client.
- */
 class Comms {
 public:
-  /**
-   * @brief Initialize Comms with a reference to ConnectionManager.
-   * 
-   * @param cm Reference to the ConnectionManager instance.
-   */
   void begin(ConnectionManager& cm);
 
-  /**
-   * @brief Publish a boot message.
-   * 
-   * @param msg Boot message payload.
-   * @return true if successful, false otherwise.
-   */
-  bool publishBoot(const char* msg);
+  bool publishBoot(const char* payload);
+  bool publishLog(const char* payload);
+  bool publishEvents(const char* payload);
+  bool publishResp(const char* payload);
+  bool publishStatus(const char* payload);
+  bool publishEventJson(const char* json, bool retained = false);
 
-  /**
-   * @brief Publish a log message.
-   * 
-   * @param msg Log message payload.
-   * @return true if successful, false otherwise.
-   */
-  bool publishLog(const char* msg);
 
-  /**
-   * @brief Publish an event as JSON.
-   * 
-   * @param json JSON event payload.
-   * @return true if successful, false otherwise.
-   */
-  bool publishEventJson(const char* json);
-
-  /**
-   * @brief Publish a response message (command replies).
-   * 
-   * @param msg Response message payload.
-   * @return true if successful, false otherwise.
-   */
-  bool publishResp(const char* msg);
-
-  /**
-   * @brief Publish a status/heartbeat message as JSON.
-   * 
-   * @param json Status JSON payload.
-   * @return true if successful, false otherwise.
-   */
-  bool publishStatus(const char* json);
+  // Home Assistant Discovery + State
+  bool publishHAAvailability(const char* payload, bool retained = true);
+  bool publishHAConfig(bool retained = true);
+  bool publishHAState(float tempC, float humPct, time_t epoch);
 
 private:
-  ConnectionManager* cmPtr = nullptr;
+  ConnectionManager* _cm = nullptr;
+  PubSubClient* _mqtt = nullptr;
 
-  bool publishToTopic(const char* topic, const char* payload);
+  bool publishRaw(const char* topic, const char* payload, bool retained = false);
 };
